@@ -3,7 +3,7 @@ const express = require("express");
 const app = express();
 const cors = require("cors");
 const mysql = require("mysql2");
-
+const path = require("path");
 const admin = require("./router/Admin");
 const aboutUs = require("./router/AboutUs");
 const banner = require("./router/Banner");
@@ -12,6 +12,9 @@ const service = require("./router/Service");
 const staff = require("./router/Staff");
 const message = require("./router/Message");
 const info = require("./router/Info");
+
+app.use("/upload", express.static(path.join(__dirname, "upload")));
+app.use(express.static("public"));
 
 app.use(cors());
 app.use(express.json());
