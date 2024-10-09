@@ -12,9 +12,7 @@ router.get("/", async (req, res) => {
       if (err) {
         return res.status(500).send("Server Error");
       }
-      if (results.length === 0) {
-        return res.status(400).send("No About Us information found!");
-      }
+
       res.status(200).json(results);
     });
   } catch (error) {
@@ -35,7 +33,7 @@ const storage = multer.diskStorage({
 const upload = multer({ storage: storage });
 
 // Post About Us
-router.post("/", auth, admin, upload.single("imgUrl"), async (req, res) => {
+router.post("/", upload.single("imgUrl"), async (req, res) => {
   try {
     const { title, description } = req.body;
     if (!title || !description) {
@@ -54,12 +52,10 @@ router.post("/", auth, admin, upload.single("imgUrl"), async (req, res) => {
         console.error("Error creating About Us entry:", err);
         return res.status(500).send("Server Error");
       }
-      res
-        .status(201)
-        .json({
-          message: "About Us created successfully",
-          aboutUs: { id: results.insertId, title, description, imgUrl },
-        });
+      res.status(201).json({
+        message: "About Us created successfully",
+        aboutUs: { id: results.insertId, title, description, imgUrl },
+      });
     });
   } catch (error) {
     console.error("Error creating About Us entry:", error);
@@ -70,8 +66,7 @@ router.post("/", auth, admin, upload.single("imgUrl"), async (req, res) => {
 // Update About Us
 router.put(
   "/update/:id",
-  auth,
-  admin,
+
   upload.single("imgUrl"),
   async (req, res) => {
     const { id } = req.params;
@@ -119,7 +114,7 @@ router.put(
 );
 
 // Delete About Us
-router.delete("/delete/:id", auth, admin, async (req, res) => {
+router.delete("/delete/:id", async (req, res) => {
   const { id } = req.params;
 
   try {

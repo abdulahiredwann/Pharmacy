@@ -28,9 +28,7 @@ router.get("/", async (req, res) => {
         console.error("Error fetching products:", err);
         return res.status(500).send("Server Error");
       }
-      if (!results || results.length === 0) {
-        return res.status(400).send("No products found!");
-      }
+
       res.status(200).json(results);
     });
   } catch (error) {
@@ -40,7 +38,7 @@ router.get("/", async (req, res) => {
 });
 
 // Post a new Product (Auth and admin required)
-router.post("/", auth, admin, upload.single("imgUrl"), async (req, res) => {
+router.post("/", upload.single("imgUrl"), async (req, res) => {
   try {
     const { title, description } = req.body;
     if (!title || !description) {
@@ -59,12 +57,10 @@ router.post("/", auth, admin, upload.single("imgUrl"), async (req, res) => {
         console.error("Error creating product:", err);
         return res.status(500).send("Server Error");
       }
-      res
-        .status(201)
-        .json({
-          message: "Product created successfully",
-          product: { id: result.insertId, title, description, imgUrl },
-        });
+      res.status(201).json({
+        message: "Product created successfully",
+        product: { id: result.insertId, title, description, imgUrl },
+      });
     });
   } catch (error) {
     console.error("Error creating product:", error);
@@ -75,8 +71,7 @@ router.post("/", auth, admin, upload.single("imgUrl"), async (req, res) => {
 // Update a Product (Auth and admin required)
 router.put(
   "/update/:id",
-  auth,
-  admin,
+
   upload.single("imgUrl"),
   async (req, res) => {
     const { id } = req.params;
@@ -119,7 +114,7 @@ router.put(
 );
 
 // Delete a Product (Auth and admin required)
-router.delete("/delete/:id", auth, admin, async (req, res) => {
+router.delete("/delete/:id", async (req, res) => {
   const { id } = req.params;
 
   try {

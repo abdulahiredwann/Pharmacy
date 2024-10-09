@@ -20,9 +20,7 @@ const upload = multer({ storage: storage });
 router.get("/", async (req, res) => {
   try {
     const [services] = await pool.promise().query("SELECT * FROM Service");
-    if (!services || services.length === 0) {
-      return res.status(400).send("No services found!");
-    }
+
     res.status(200).json(services);
   } catch (error) {
     console.error("Error fetching services:", error);
@@ -31,7 +29,7 @@ router.get("/", async (req, res) => {
 });
 
 // Post a new Service
-router.post("/", auth, admin, upload.single("imgUrl"), async (req, res) => {
+router.post("/", upload.single("imgUrl"), async (req, res) => {
   try {
     const { title, description } = req.body;
     if (!title || !description) {
@@ -50,12 +48,10 @@ router.post("/", auth, admin, upload.single("imgUrl"), async (req, res) => {
         [title, description, imgUrl]
       );
 
-    res
-      .status(201)
-      .json({
-        message: "Service created successfully",
-        serviceId: result.insertId,
-      });
+    res.status(201).json({
+      message: "Service created successfully",
+      serviceId: result.insertId,
+    });
   } catch (error) {
     console.error("Error creating service:", error);
     res.status(500).send("Server Error");
@@ -65,8 +61,7 @@ router.post("/", auth, admin, upload.single("imgUrl"), async (req, res) => {
 // Update a Service
 router.put(
   "/update/:id",
-  auth,
-  admin,
+
   upload.single("imgUrl"),
   async (req, res) => {
     const { id } = req.params;
@@ -103,7 +98,7 @@ router.put(
 );
 
 // Delete a Service
-router.delete("/delete/:id", auth, admin, async (req, res) => {
+router.delete("/delete/:id", async (req, res) => {
   const { id } = req.params;
 
   try {

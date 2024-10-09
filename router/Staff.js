@@ -20,9 +20,7 @@ const upload = multer({ storage: storage });
 router.get("/", async (req, res) => {
   try {
     const [staff] = await pool.promise().query("SELECT * FROM staff");
-    if (!staff || staff.length === 0) {
-      return res.status(400).send("No staff members found!");
-    }
+
     res.status(200).json(staff);
   } catch (error) {
     console.error("Error fetching staff members:", error);
@@ -31,7 +29,7 @@ router.get("/", async (req, res) => {
 });
 
 // Create new staff member
-router.post("/", auth, admin, upload.single("imgUrl"), async (req, res) => {
+router.post("/", upload.single("imgUrl"), async (req, res) => {
   const { name, position, facebook, telegram } = req.body;
 
   if (!name || !position) {
@@ -65,8 +63,7 @@ router.post("/", auth, admin, upload.single("imgUrl"), async (req, res) => {
 // Update staff member by ID
 router.put(
   "/update/:id",
-  auth,
-  admin,
+
   upload.single("imgUrl"),
   async (req, res) => {
     const { id } = req.params;
@@ -105,7 +102,7 @@ router.put(
 );
 
 // Delete staff member by ID
-router.delete("/delete/:id", auth, admin, async (req, res) => {
+router.delete("/delete/:id", async (req, res) => {
   const { id } = req.params;
 
   try {

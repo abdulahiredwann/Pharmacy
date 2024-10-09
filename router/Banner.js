@@ -7,14 +7,12 @@ const pool = require("../Model/database"); // Assuming you've exported your pool
 // Get all Banners (no middleware applied here)
 router.get("/", async (req, res) => {
   try {
-    const query = "SELECT * FROM Banners";
+    const query = "SELECT * FROM Banner";
     pool.query(query, (err, results) => {
       if (err) {
         return res.status(500).send("Server Error");
       }
-      if (results.length === 0) {
-        return res.status(400).send("No banners found!");
-      }
+
       res.status(200).json(results);
     });
   } catch (error) {
@@ -37,7 +35,7 @@ const storage = multer.diskStorage({
 const upload = multer({ storage: storage });
 
 // Post a new Banner (using auth and admin middleware)
-router.post("/", auth, admin, upload.single("imgUrl"), async (req, res) => {
+router.post("/", upload.single("imgUrl"), async (req, res) => {
   try {
     const { title, description } = req.body;
     if (!title || !description) {
@@ -50,18 +48,16 @@ router.post("/", auth, admin, upload.single("imgUrl"), async (req, res) => {
     }
 
     const createQuery =
-      "INSERT INTO Banners (title, description, imgUrl) VALUES (?, ?, ?)";
+      "INSERT INTO Banner (title, description, imgUrl) VALUES (?, ?, ?)";
     pool.query(createQuery, [title, description, imgUrl], (err, results) => {
       if (err) {
         console.error("Error creating Banner entry:", err);
         return res.status(500).send("Server Error");
       }
-      res
-        .status(201)
-        .json({
-          message: "Banner created successfully",
-          banner: { id: results.insertId, title, description, imgUrl },
-        });
+      res.status(201).json({
+        message: "Banner created successfully",
+        banner: { id: results.insertId, title, description, imgUrl },
+      });
     });
   } catch (error) {
     console.error("Error creating Banner entry:", error);
@@ -72,8 +68,7 @@ router.post("/", auth, admin, upload.single("imgUrl"), async (req, res) => {
 // Update a Banner (using auth and admin middleware)
 router.put(
   "/update/:id",
-  auth,
-  admin,
+
   upload.single("imgUrl"),
   async (req, res) => {
     const { id } = req.params;
@@ -85,7 +80,7 @@ router.put(
     }
 
     try {
-      const findQuery = "SELECT * FROM Banners WHERE id = ?";
+      const findQuery = "SELECT * FROM Banner WHERE id = ?";
       pool.query(findQuery, [id], (err, results) => {
         if (err) {
           return res.status(500).send("Server Error");
@@ -95,7 +90,7 @@ router.put(
         }
 
         const updateQuery =
-          "UPDATE Banners SET title = ?, description = ?, imgUrl = ? WHERE id = ?";
+          "UPDATE Banner SET title = ?, description = ?, imgUrl = ? WHERE id = ?";
         pool.query(
           updateQuery,
           [
@@ -121,11 +116,11 @@ router.put(
 );
 
 // Delete a Banner (using auth and admin middleware)
-router.delete("/delete/:id", auth, admin, async (req, res) => {
+router.delete("/delete/:id", async (req, res) => {
   const { id } = req.params;
 
   try {
-    const deleteQuery = "DELETE FROM Banners WHERE id = ?";
+    const deleteQuery = "DELETE FROM Banner WHERE id = ?";
     pool.query(deleteQuery, [id], (err, results) => {
       if (err) {
         console.error("Error deleting Banner entry:", err);

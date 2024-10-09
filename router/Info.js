@@ -33,7 +33,7 @@ router.get("/", async (req, res) => {
 });
 
 // Create a new info entry
-router.post("/", auth, admin, async (req, res) => {
+router.post("/", async (req, res) => {
   const { location, phoneNumber } = req.body;
 
   // Validate the request body using Joi
@@ -66,7 +66,7 @@ router.post("/", auth, admin, async (req, res) => {
 });
 
 // Update an info entry by ID
-router.put("/update/:id", auth, admin, async (req, res) => {
+router.put("/update/:id", async (req, res) => {
   const { id } = req.params;
   const { location, phoneNumber } = req.body;
 
@@ -108,7 +108,7 @@ router.put("/update/:id", auth, admin, async (req, res) => {
 });
 
 // Delete an info entry by ID
-router.delete("/delete/:id", auth, admin, async (req, res) => {
+router.delete("/delete/:id", async (req, res) => {
   const { id } = req.params;
 
   try {
