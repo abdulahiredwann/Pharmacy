@@ -1,9 +1,8 @@
 const express = require("express");
 const router = express.Router();
-const { PrismaClient } = require("@prisma/client");
 const Joi = require("joi"); // Import Joi for validation
 const { auth, admin } = require("../Middleware/Admin"); // Import your middleware
-const prisma = new PrismaClient();
+const pool = require("../Model/database"); // Assuming you've exported your pool from your main server file
 
 // Joi validation schema for Message
 const messageValidationSchema = Joi.object({
@@ -13,26 +12,28 @@ const messageValidationSchema = Joi.object({
   message: Joi.string().min(5).max(500).required(),
 });
 
-// Use the auth middleware for all routes
-router.use(auth); // Apply auth middleware to all routes
-
-// Get all messages
-router.get("/", admin, async (req, res) => {
-  // Only admins can access this route
+// Get all messages (No auth required)
+router.get("/", async (req, res) => {
   try {
-    const messages = await prisma.message.findMany();
-    if (!messages || messages.length === 0) {
-      return res.status(400).send("No messages found!");
-    }
-    res.status(200).json(messages);
+    const query = "SELECT * FROM messages"; // Replace messages with your actual table name
+    pool.query(query, (err, results) => {
+      if (err) {
+        console.error("Error fetching messages:", err);
+        return res.status(500).send("Server Error");
+      }
+      if (!results || results.length === 0) {
+        return res.status(400).send("No messages found!");
+      }
+      res.status(200).json(results);
+    });
   } catch (error) {
     console.error("Error fetching messages:", error);
     res.status(500).send("Server Error");
   }
 });
 
-// Create a new message
-router.post("/", async (req, res) => {
+// Create a new message (Auth and admin required)
+router.post("/", auth, async (req, res) => {
   const { name, email, phone, message } = req.body;
 
   // Validate the request body using Joi
@@ -47,25 +48,23 @@ router.post("/", async (req, res) => {
   }
 
   try {
-    const newMessage = await prisma.message.create({
-      data: {
-        name,
-        email,
-        phone,
-        message,
-      },
+    const createQuery =
+      "INSERT INTO messages (name, email, phone, message) VALUES (?, ?, ?, ?)"; // Replace messages with your actual table name
+    pool.query(createQuery, [name, email, phone, message], (err) => {
+      if (err) {
+        console.error("Error creating message:", err);
+        return res.status(500).send("Server Error");
+      }
+      res.status(201).send("Message created successfully");
     });
-
-    res.status(201).send("Message created successfully");
   } catch (error) {
     console.error("Error creating message:", error);
     res.status(500).send("Server Error");
   }
 });
 
-// Update a message by ID
-router.put("/update/:id", admin, async (req, res) => {
-  // Only admins can update messages
+// Update a message by ID (Auth and admin required)
+router.put("/update/:id", auth, admin, async (req, res) => {
   const { id } = req.params;
   const { name, email, phone, message } = req.body;
 
@@ -81,42 +80,45 @@ router.put("/update/:id", admin, async (req, res) => {
   }
 
   try {
-    const existingMessage = await prisma.message.findUnique({
-      where: { id: parseInt(id) },
+    const findQuery = "SELECT * FROM messages WHERE id = ?"; // Replace messages with your actual table name
+    pool.query(findQuery, [id], (err, results) => {
+      if (err) {
+        console.error("Error finding message:", err);
+        return res.status(500).send("Server Error");
+      }
+      if (results.length === 0) {
+        return res.status(404).send("Message not found");
+      }
+
+      const updateQuery =
+        "UPDATE messages SET name = ?, email = ?, phone = ?, message = ? WHERE id = ?"; // Replace messages with your actual table name
+      pool.query(updateQuery, [name, email, phone, message, id], (err) => {
+        if (err) {
+          console.error("Error updating message:", err);
+          return res.status(500).send("Server Error");
+        }
+        res.status(200).send("Message updated successfully");
+      });
     });
-
-    if (!existingMessage) {
-      return res.status(404).send("Message not found");
-    }
-
-    const updatedMessage = await prisma.message.update({
-      where: { id: parseInt(id) },
-      data: {
-        name,
-        email,
-        phone,
-        message,
-      },
-    });
-
-    res.status(200).send("Message updated successfully");
   } catch (error) {
     console.error("Error updating message:", error);
     res.status(500).send("Server Error");
   }
 });
 
-// Delete a message by ID
-router.delete("/delete/:id", admin, async (req, res) => {
-  // Only admins can delete messages
+// Delete a message by ID (Auth and admin required)
+router.delete("/delete/:id", auth, admin, async (req, res) => {
   const { id } = req.params;
 
   try {
-    await prisma.message.delete({
-      where: { id: parseInt(id) },
+    const deleteQuery = "DELETE FROM messages WHERE id = ?"; // Replace messages with your actual table name
+    pool.query(deleteQuery, [id], (err) => {
+      if (err) {
+        console.error("Error deleting message:", err);
+        return res.status(500).send("Server Error");
+      }
+      res.status(200).send("Message deleted successfully");
     });
-
-    res.status(200).send("Message deleted successfully");
   } catch (error) {
     console.error("Error deleting message:", error);
     res.status(500).send("Server Error");

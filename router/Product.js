@@ -1,23 +1,8 @@
 const express = require("express");
 const router = express.Router();
-const { PrismaClient } = require("@prisma/client");
-const prisma = new PrismaClient();
 const multer = require("multer");
 const { auth, admin } = require("../Middleware/Admin"); // Import your middleware
-
-// Get all products
-router.get("/", async (req, res) => {
-  try {
-    const products = await prisma.product.findMany();
-    if (!products || products.length === 0) {
-      return res.status(400).send("No products found!");
-    }
-    res.status(200).json(products);
-  } catch (error) {
-    console.error("Error fetching products:", error);
-    res.status(500).send("Server Error");
-  }
-});
+const pool = require("../Model/database"); // Assuming you've exported your pool from your main server file
 
 // Set up Multer storage configuration for product images
 const storage = multer.diskStorage({
@@ -26,7 +11,7 @@ const storage = multer.diskStorage({
     cb(null, "./upload/Products");
   },
   filename: function (req, file, cb) {
-    // Save the file with its original name, or you can customize it
+    // Save the file with a timestamp and its original name
     cb(null, Date.now() + "-" + file.originalname);
   },
 });
@@ -34,7 +19,27 @@ const storage = multer.diskStorage({
 // Initialize multer with the defined storage configuration
 const upload = multer({ storage: storage });
 
-// Post a new Product
+// Get all products (No auth required)
+router.get("/", async (req, res) => {
+  try {
+    const query = "SELECT * FROM products"; // Replace products with your actual table name
+    pool.query(query, (err, results) => {
+      if (err) {
+        console.error("Error fetching products:", err);
+        return res.status(500).send("Server Error");
+      }
+      if (!results || results.length === 0) {
+        return res.status(400).send("No products found!");
+      }
+      res.status(200).json(results);
+    });
+  } catch (error) {
+    console.error("Error fetching products:", error);
+    res.status(500).send("Server Error");
+  }
+});
+
+// Post a new Product (Auth and admin required)
 router.post("/", auth, admin, upload.single("imgUrl"), async (req, res) => {
   try {
     const { title, description } = req.body;
@@ -47,22 +52,27 @@ router.post("/", auth, admin, upload.single("imgUrl"), async (req, res) => {
       return res.status(400).send("Image file is required");
     }
 
-    const product = await prisma.product.create({
-      data: {
-        title,
-        description,
-        imgUrl,
-      },
+    const createQuery =
+      "INSERT INTO products (title, description, imgUrl) VALUES (?, ?, ?)"; // Replace products with your actual table name
+    pool.query(createQuery, [title, description, imgUrl], (err, result) => {
+      if (err) {
+        console.error("Error creating product:", err);
+        return res.status(500).send("Server Error");
+      }
+      res
+        .status(201)
+        .json({
+          message: "Product created successfully",
+          product: { id: result.insertId, title, description, imgUrl },
+        });
     });
-
-    res.status(201).json({ message: "Product created successfully", product });
   } catch (error) {
     console.error("Error creating product:", error);
     res.status(500).send("Server Error");
   }
 });
 
-// Update a Product
+// Update a Product (Auth and admin required)
 router.put(
   "/update/:id",
   auth,
@@ -77,25 +87,30 @@ router.put(
     const imgUrl = req.file ? req.file.path : null;
 
     try {
-      const product = await prisma.product.findUnique({
-        where: { id: parseInt(id) },
-      });
-      if (!product) {
-        return res.status(404).send("Product not found");
-      }
+      const findQuery = "SELECT * FROM products WHERE id = ?"; // Replace products with your actual table name
+      pool.query(findQuery, [id], (err, results) => {
+        if (err) {
+          console.error("Error finding product:", err);
+          return res.status(500).send("Server Error");
+        }
+        if (results.length === 0) {
+          return res.status(404).send("Product not found");
+        }
 
-      const updatedProduct = await prisma.product.update({
-        where: { id: parseInt(id) },
-        data: {
-          title: title || product.title,
-          description: description || product.description,
-          imgUrl: imgUrl || product.imgUrl,
-        },
+        const updateQuery =
+          "UPDATE products SET title = ?, description = ?, imgUrl = ? WHERE id = ?"; // Replace products with your actual table name
+        pool.query(
+          updateQuery,
+          [title, description, imgUrl || results[0].imgUrl, id],
+          (err) => {
+            if (err) {
+              console.error("Error updating product:", err);
+              return res.status(500).send("Server Error");
+            }
+            res.status(200).json({ message: "Product updated successfully" });
+          }
+        );
       });
-
-      res
-        .status(200)
-        .json({ message: "Product updated successfully", updatedProduct });
     } catch (error) {
       console.error("Error updating product:", error);
       res.status(500).send("Server Error");
@@ -103,16 +118,19 @@ router.put(
   }
 );
 
-// Delete a Product
+// Delete a Product (Auth and admin required)
 router.delete("/delete/:id", auth, admin, async (req, res) => {
   const { id } = req.params;
 
   try {
-    const product = await prisma.product.delete({
-      where: { id: parseInt(id) },
+    const deleteQuery = "DELETE FROM products WHERE id = ?"; // Replace products with your actual table name
+    pool.query(deleteQuery, [id], (err) => {
+      if (err) {
+        console.error("Error deleting product:", err);
+        return res.status(500).send("Server Error");
+      }
+      res.status(200).send("Product deleted successfully");
     });
-
-    res.status(200).send("Product deleted successfully");
   } catch (error) {
     console.error("Error deleting product:", error);
     res.status(500).send("Server Error");

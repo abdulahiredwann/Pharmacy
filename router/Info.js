@@ -1,9 +1,8 @@
 const express = require("express");
 const router = express.Router();
-const { PrismaClient } = require("@prisma/client");
-const Joi = require("joi"); // Import Joi for validation
 const { auth, admin } = require("../Middleware/Admin"); // Import your middleware
-const prisma = new PrismaClient();
+const pool = require("../Model/database"); // Assuming you've exported your pool from your main server file
+const Joi = require("joi"); // Import Joi for validation
 
 // Joi validation schema for Info
 const infoValidationSchema = Joi.object({
@@ -12,16 +11,21 @@ const infoValidationSchema = Joi.object({
 });
 
 // Use the auth middleware for all routes
-router.use(auth); // Apply auth middleware to all routes
 
 // Get all info entries
 router.get("/", async (req, res) => {
   try {
-    const infoEntries = await prisma.info.findMany();
-    if (!infoEntries || infoEntries.length === 0) {
-      return res.status(400).send("No info entries found!");
-    }
-    res.status(200).json(infoEntries);
+    const query = "SELECT * FROM Info"; // Replace Info with your actual table name
+    pool.query(query, (err, results) => {
+      if (err) {
+        console.error("Error fetching info entries:", err);
+        return res.status(500).send("Server Error");
+      }
+      if (results.length === 0) {
+        return res.status(400).send("No info entries found!");
+      }
+      res.status(200).json(results);
+    });
   } catch (error) {
     console.error("Error fetching info entries:", error);
     res.status(500).send("Server Error");
@@ -29,7 +33,7 @@ router.get("/", async (req, res) => {
 });
 
 // Create a new info entry
-router.post("/", admin, async (req, res) => {
+router.post("/", auth, admin, async (req, res) => {
   const { location, phoneNumber } = req.body;
 
   // Validate the request body using Joi
@@ -39,28 +43,30 @@ router.post("/", admin, async (req, res) => {
   }
 
   try {
-    const newInfo = await prisma.info.create({
-      data: {
-        location,
-        phoneNumber,
-      },
+    const createQuery =
+      "INSERT INTO Info (location, phoneNumber) VALUES (?, ?)"; // Replace Info with your actual table name
+    pool.query(createQuery, [location, phoneNumber], (err, results) => {
+      if (err) {
+        // Handle unique constraint error for phoneNumber
+        if (err.code === "ER_DUP_ENTRY") {
+          return res.status(400).send("Phone number already exists.");
+        }
+        console.error("Error creating info entry:", err);
+        return res.status(500).send("Server Error");
+      }
+      res.status(201).json({
+        message: "Info entry created successfully",
+        newInfo: { id: results.insertId, location, phoneNumber },
+      });
     });
-
-    res
-      .status(201)
-      .json({ message: "Info entry created successfully", newInfo });
   } catch (error) {
-    // Handle unique constraint error for phoneNumber
-    if (error.code === "P2002") {
-      return res.status(400).send("Phone number already exists.");
-    }
     console.error("Error creating info entry:", error);
     res.status(500).send("Server Error");
   }
 });
 
 // Update an info entry by ID
-router.put("/update/:id", admin, async (req, res) => {
+router.put("/update/:id", auth, admin, async (req, res) => {
   const { id } = req.params;
   const { location, phoneNumber } = req.body;
 
@@ -71,45 +77,52 @@ router.put("/update/:id", admin, async (req, res) => {
   }
 
   try {
-    const existingInfo = await prisma.info.findUnique({
-      where: { id: parseInt(id) },
+    const findQuery = "SELECT * FROM Info WHERE id = ?"; // Replace Info with your actual table name
+    pool.query(findQuery, [id], (err, results) => {
+      if (err) {
+        console.error("Error finding info entry:", err);
+        return res.status(500).send("Server Error");
+      }
+      if (results.length === 0) {
+        return res.status(404).send("Info entry not found");
+      }
+
+      const updateQuery =
+        "UPDATE Info SET location = ?, phoneNumber = ? WHERE id = ?"; // Replace Info with your actual table name
+      pool.query(updateQuery, [location, phoneNumber, id], (err) => {
+        if (err) {
+          // Handle unique constraint error for phoneNumber
+          if (err.code === "ER_DUP_ENTRY") {
+            return res.status(400).send("Phone number already exists.");
+          }
+          console.error("Error updating info entry:", err);
+          return res.status(500).send("Server Error");
+        }
+        res.status(200).json({ message: "Info entry updated successfully" });
+      });
     });
-
-    if (!existingInfo) {
-      return res.status(404).send("Info entry not found");
-    }
-
-    const updatedInfo = await prisma.info.update({
-      where: { id: parseInt(id) },
-      data: {
-        location,
-        phoneNumber,
-      },
-    });
-
-    res
-      .status(200)
-      .json({ message: "Info entry updated successfully", updatedInfo });
   } catch (error) {
-    // Handle unique constraint error for phoneNumber
-    if (error.code === "P2002") {
-      return res.status(400).send("Phone number already exists.");
-    }
     console.error("Error updating info entry:", error);
     res.status(500).send("Server Error");
   }
 });
 
 // Delete an info entry by ID
-router.delete("/delete/:id", admin, async (req, res) => {
+router.delete("/delete/:id", auth, admin, async (req, res) => {
   const { id } = req.params;
 
   try {
-    await prisma.info.delete({
-      where: { id: parseInt(id) },
+    const deleteQuery = "DELETE FROM Info WHERE id = ?"; // Replace Info with your actual table name
+    pool.query(deleteQuery, [id], (err, results) => {
+      if (err) {
+        console.error("Error deleting info entry:", err);
+        return res.status(500).send("Server Error");
+      }
+      if (results.affectedRows === 0) {
+        return res.status(404).send("Info entry not found");
+      }
+      res.status(200).send("Info entry deleted successfully");
     });
-
-    res.status(200).send("Info entry deleted successfully");
   } catch (error) {
     console.error("Error deleting info entry:", error);
     res.status(500).send("Server Error");

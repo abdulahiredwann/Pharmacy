@@ -19,19 +19,32 @@ app.use(express.static("public"));
 app.use(cors());
 app.use(express.json());
 
-// const connection = mysql.createConnection({
-//   host: "MYSQL8002.site4now.net", // The server hosting your MySQL DB
-//   user: "aad665_abedb", // Your database username
-//   password: "ABEDB@2024", // Your database password
-//   database: "db_aad665_abedb", // The database name
-// });
-// connection.connect((err) => {
-//   if (err) {
-//     console.error("Error connecting to Database: " + err.stack);
-//     return;
-//   }
-//   console.log("Connected to DB ");
-// });
+// Create a MySQL connection pool
+const pool = mysql.createPool({
+  host: "MYSQL8002.site4now.net",
+  user: "aad665_abdred",
+  password: "pirate47219930",
+  database: "db_aad665_pharma",
+  port: 3306,
+  connectionLimit: 10, // Adjust as needed
+});
+
+// Route to check database connection
+app.get("/checkdb", (req, res) => {
+  pool.getConnection((err, connection) => {
+    if (err) {
+      console.error("Error connecting to Database: " + err.stack);
+      return res.status(500).send("Error connecting to Database: " + err.stack);
+    }
+    res.send("Successfully connected to the Database!");
+
+    connection.release(); // Release the connection back to the pool
+  });
+});
+
+app.get("/", (req, res) => {
+  res.send("Welcome to Nebel Dental Clinic! We are here to serve you.");
+});
 
 app.use("/api/admin", admin);
 app.use("/api/aboutus", aboutUs);

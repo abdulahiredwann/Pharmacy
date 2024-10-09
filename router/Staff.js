@@ -1,13 +1,25 @@
 const express = require("express");
 const router = express.Router();
-const { PrismaClient } = require("@prisma/client");
-const prisma = new PrismaClient();
+const pool = require("../Model/database"); // Import the pool from your db.js file
+const multer = require("multer");
 const { auth, admin } = require("../Middleware/Admin"); // Import your middleware
 
-// Get all staff
+// Set up Multer storage configuration for staff images
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, "./upload/Staff");
+  },
+  filename: function (req, file, cb) {
+    cb(null, Date.now() + "-" + file.originalname);
+  },
+});
+
+const upload = multer({ storage: storage });
+
+// Get all staff members
 router.get("/", async (req, res) => {
   try {
-    const staff = await prisma.staff.findMany();
+    const [staff] = await pool.promise().query("SELECT * FROM staff");
     if (!staff || staff.length === 0) {
       return res.status(400).send("No staff members found!");
     }
@@ -19,26 +31,31 @@ router.get("/", async (req, res) => {
 });
 
 // Create new staff member
-router.post("/", auth, admin, async (req, res) => {
+router.post("/", auth, admin, upload.single("imgUrl"), async (req, res) => {
   const { name, position, facebook, telegram } = req.body;
 
   if (!name || !position) {
     return res.status(400).send("Name and position are required!");
   }
 
-  try {
-    const newStaff = await prisma.staff.create({
-      data: {
-        name,
-        position,
-        facebook: facebook || "", // Optional field, default to empty string if not provided
-        telegram: telegram || "", // Optional field, default to empty string if not provided
-      },
-    });
+  const imgUrl = req.file ? req.file.path : null;
 
-    res
-      .status(201)
-      .json({ message: "Staff member created successfully", newStaff });
+  if (!imgUrl) {
+    return res.status(400).send("Image file is required");
+  }
+
+  try {
+    const [result] = await pool
+      .promise()
+      .query(
+        "INSERT INTO staff (name, position, facebook, telegram, imgUrl) VALUES (?, ?, ?, ?, ?)",
+        [name, position, facebook || "", telegram || "", imgUrl]
+      );
+
+    res.status(201).json({
+      message: "Staff member created successfully",
+      staffId: result.insertId,
+    });
   } catch (error) {
     console.error("Error creating staff member:", error);
     res.status(500).send("Server Error");
@@ -46,51 +63,53 @@ router.post("/", auth, admin, async (req, res) => {
 });
 
 // Update staff member by ID
-router.put("/update/:id", auth, admin, async (req, res) => {
-  const { id } = req.params;
-  const { name, position, facebook, telegram } = req.body;
+router.put(
+  "/update/:id",
+  auth,
+  admin,
+  upload.single("imgUrl"),
+  async (req, res) => {
+    const { id } = req.params;
+    const { name, position, facebook, telegram } = req.body;
+    const imgUrl = req.file ? req.file.path : null;
 
-  if (!name || !position) {
-    return res.status(400).send("Name and position are required!");
-  }
+    try {
+      const [existingStaff] = await pool
+        .promise()
+        .query("SELECT * FROM staff WHERE id = ?", [id]);
 
-  try {
-    const staff = await prisma.staff.findUnique({
-      where: { id: parseInt(id) },
-    });
+      if (existingStaff.length === 0) {
+        return res.status(404).send("Staff member not found");
+      }
 
-    if (!staff) {
-      return res.status(404).send("Staff member not found");
+      await pool
+        .promise()
+        .query(
+          "UPDATE staff SET name = ?, position = ?, facebook = ?, telegram = ?, imgUrl = ? WHERE id = ?",
+          [
+            name || existingStaff[0].name,
+            position || existingStaff[0].position,
+            facebook || existingStaff[0].facebook,
+            telegram || existingStaff[0].telegram,
+            imgUrl || existingStaff[0].imgUrl,
+            id,
+          ]
+        );
+
+      res.status(200).json({ message: "Staff member updated successfully" });
+    } catch (error) {
+      console.error("Error updating staff member:", error);
+      res.status(500).send("Server Error");
     }
-
-    const updatedStaff = await prisma.staff.update({
-      where: { id: parseInt(id) },
-      data: {
-        name: name || staff.name,
-        position: position || staff.position,
-        facebook: facebook || staff.facebook,
-        telegram: telegram || staff.telegram,
-      },
-    });
-
-    res
-      .status(200)
-      .json({ message: "Staff member updated successfully", updatedStaff });
-  } catch (error) {
-    console.error("Error updating staff member:", error);
-    res.status(500).send("Server Error");
   }
-});
+);
 
 // Delete staff member by ID
 router.delete("/delete/:id", auth, admin, async (req, res) => {
   const { id } = req.params;
 
   try {
-    await prisma.staff.delete({
-      where: { id: parseInt(id) },
-    });
-
+    await pool.promise().query("DELETE FROM staff WHERE id = ?", [id]);
     res.status(200).send("Staff member deleted successfully");
   } catch (error) {
     console.error("Error deleting staff member:", error);
