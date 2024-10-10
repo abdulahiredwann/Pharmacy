@@ -29,7 +29,7 @@ router.get("/", async (req, res) => {
 });
 
 // Create new staff member
-router.post("/", upload.single("imgUrl"), async (req, res) => {
+router.post("/", auth, admin, upload.single("imgUrl"), async (req, res) => {
   const { name, position, facebook, telegram } = req.body;
 
   if (!name || !position) {
@@ -63,7 +63,8 @@ router.post("/", upload.single("imgUrl"), async (req, res) => {
 // Update staff member by ID
 router.put(
   "/update/:id",
-
+  auth,
+  admin,
   upload.single("imgUrl"),
   async (req, res) => {
     const { id } = req.params;
@@ -102,7 +103,7 @@ router.put(
 );
 
 // Delete staff member by ID
-router.delete("/delete/:id", async (req, res) => {
+router.delete("/delete/:id", auth, admin, async (req, res) => {
   const { id } = req.params;
 
   try {

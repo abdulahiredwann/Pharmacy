@@ -35,7 +35,7 @@ const storage = multer.diskStorage({
 const upload = multer({ storage: storage });
 
 // Post a new Banner (using auth and admin middleware)
-router.post("/", upload.single("imgUrl"), async (req, res) => {
+router.post("/", auth, admin, upload.single("imgUrl"), async (req, res) => {
   try {
     const { title, description } = req.body;
     if (!title || !description) {
@@ -68,7 +68,8 @@ router.post("/", upload.single("imgUrl"), async (req, res) => {
 // Update a Banner (using auth and admin middleware)
 router.put(
   "/update/:id",
-
+  auth,
+  admin,
   upload.single("imgUrl"),
   async (req, res) => {
     const { id } = req.params;
@@ -116,7 +117,7 @@ router.put(
 );
 
 // Delete a Banner (using auth and admin middleware)
-router.delete("/delete/:id", async (req, res) => {
+router.delete("/delete/:id", auth, admin, async (req, res) => {
   const { id } = req.params;
 
   try {

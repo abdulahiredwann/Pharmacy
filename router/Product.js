@@ -38,7 +38,7 @@ router.get("/", async (req, res) => {
 });
 
 // Post a new Product (Auth and admin required)
-router.post("/", upload.single("imgUrl"), async (req, res) => {
+router.post("/", auth, admin, upload.single("imgUrl"), async (req, res) => {
   try {
     const { title, description } = req.body;
     if (!title || !description) {
@@ -71,7 +71,8 @@ router.post("/", upload.single("imgUrl"), async (req, res) => {
 // Update a Product (Auth and admin required)
 router.put(
   "/update/:id",
-
+  auth,
+  admin,
   upload.single("imgUrl"),
   async (req, res) => {
     const { id } = req.params;
@@ -114,7 +115,7 @@ router.put(
 );
 
 // Delete a Product (Auth and admin required)
-router.delete("/delete/:id", async (req, res) => {
+router.delete("/delete/:id", auth, admin, async (req, res) => {
   const { id } = req.params;
 
   try {

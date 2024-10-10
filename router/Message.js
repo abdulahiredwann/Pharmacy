@@ -13,7 +13,7 @@ const messageValidationSchema = Joi.object({
 });
 
 // Get all messages (No auth required)
-router.get("/", async (req, res) => {
+router.get("/", auth, admin, async (req, res) => {
   try {
     const query = "SELECT * FROM messages"; // Replace messages with your actual table name
     pool.query(query, (err, results) => {
@@ -33,7 +33,7 @@ router.get("/", async (req, res) => {
 });
 
 // Create a new message (Auth and admin required)
-router.post("/", auth, async (req, res) => {
+router.post("/", async (req, res) => {
   const { name, email, phone, message } = req.body;
 
   // Validate the request body using Joi
